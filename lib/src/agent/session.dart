@@ -146,8 +146,20 @@ class Session extends DisposableChangeNotifier {
   static final Uuid _uuid = const Uuid();
 
   final Room room;
-  final SessionOptions _options;
   final _TokenSourceConfiguration _tokenSourceConfiguration;
+
+  SessionOptions get options => _options;
+
+  set options(SessionOptions value) {
+    if (!identical(value.room, room)) {
+      // Keep Session.room authoritative to avoid split-brain state.
+      value = value.copyWith(room: room);
+    }
+    _options = value;
+    notifyListeners();
+  }
+
+  SessionOptions _options;
 
   final Agent _agent = Agent();
   Agent get agent => _agent;
@@ -211,7 +223,9 @@ class Session extends DisposableChangeNotifier {
         _setConnectionState(ConnectionState.connecting);
         _agent.connecting(buffering: false);
         dispatchesAgent = await connect();
-        await room.localParticipant?.setMicrophoneEnabled(true);
+        if (_options.defaultMicrophoneEnabled) {
+          await room.localParticipant?.setMicrophoneEnabled(true);
+        }
       }
 
       if (dispatchesAgent) {
